@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>HealthFun — centrum zdrowia</title>
+  <meta name="description" content="Twoje centrum zdrowia: trening, dieta, rutyny i dziennik — z plików CSV.">
+  <meta name="theme-color" content="#2f9e6e" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f1512" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="HealthFun">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar__inner">
+      <h1 class="topbar__title" id="title">HealthFun</h1>
+      <button class="iconbtn" data-action="settings" aria-label="Ustawienia">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2.2"/><circle cx="15" cy="12" r="2.2"/><circle cx="10" cy="18" r="2.2"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="app" class="app">
+    <div class="loading"><div class="spinner"></div><p>Ładuję dane z CSV…</p></div>
+  </main>
+
+  <nav class="tabbar" id="tabbar" aria-label="Główna nawigacja">
+    <a href="#/dzis" data-tab="dzis"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span>Dziś</span></a>
+    <a href="#/trening" data-tab="trening"><svg viewBox="0 0 24 24"><path d="M6 7v10M18 7v10M2.5 9.5v5M21.5 9.5v5M6 12h12"/></svg><span>Trening</span></a>
+    <a href="#/dieta" data-tab="dieta"><svg viewBox="0 0 24 24"><path d="M12 21c-4.4 0-7-3.2-7-7.2C5 10.6 7 9 9 9c1.3 0 1.9.6 3 .6S13.7 9 15 9c2 0 4 1.6 4 4.8 0 4-2.6 7.2-7 7.2z"/><path d="M12 8.5c0-2.2 1.2-4 3.5-5"/></svg><span>Dieta</span></a>
+    <a href="#/dziennik" data-tab="dziennik"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><span>Dziennik</span></a>
+    <a href="#/wiedza" data-tab="wiedza"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 1 4 10.5c-.7.6-1 1.3-1 2.5H9c0-1.2-.3-1.9-1-2.5A6 6 0 0 1 12 3z"/></svg><span>Wiedza</span></a>
+  </nav>
+
+  <div id="timer" class="timer" hidden>
+    <span class="timer__label">Przerwa</span>
+    <b class="timer__time">0:00</b>
+    <button class="timer__btn" data-action="timer-add" aria-label="Dodaj 30 sekund">+30</button>
+    <button class="timer__btn" data-action="timer-stop" aria-label="Zatrzymaj">✕</button>
+  </div>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <dialog id="sheet" class="sheet">
+    <div class="sheet__handle"></div>
+    <div class="sheet__head">
+      <h2 id="sheetTitle"></h2>
+      <button class="iconbtn" data-action="close-sheet" aria-label="Zamknij">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="sheet__body" id="sheetBody"></div>
+  </dialog>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

@@ -37,6 +37,10 @@ on('settings', () => {
   const opt = (k, l) => `<button type="button" class="chip ${t === k ? 'on' : ''}" data-action="set-theme" data-v="${k}">${l}</button>`;
   openSheet('Ustawienia', `
     <section class="block"><h4 class="block__title">Wygląd</h4><div class="chips">${opt('auto', 'Systemowy')}${opt('light', 'Jasny')}${opt('dark', 'Ciemny')}</div></section>
+    <section class="block"><h4 class="block__title">Jedzenie</h4>
+      <button type="button" class="btn btn--ghost" data-action="open-prefs">Czego nie jem — wykluczenia</button>
+      <p class="muted small">Przepisy z wykluczonymi składnikami znikają z propozycji, plan podmienia je na podobne, a zakupy liczą się z Twojego tygodnia.</p>
+    </section>
     <section class="block"><h4 class="block__title">Dane</h4>
       <p class="muted">Aplikacja czyta pliki CSV z folderu <code>data/</code>. Edytuj CSV → wgraj na GitHub → tutaj „Odśwież dane”.</p>
       <button type="button" class="btn btn--ghost" data-action="refresh-data">Odśwież dane i aplikację</button>

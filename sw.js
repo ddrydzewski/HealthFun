@@ -3,7 +3,7 @@
  * - Pliki CSV (nasze "API"): network-first, fallback do cache — aktualizacja danych bez zmiany kodu
  * Zmień VERSION przy każdym wdrożeniu, żeby wymusić odświeżenie shellu.
  */
-const VERSION = 'hf-v1';
+const VERSION = 'hf-v2';
 const SHELL = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const SHELL = [
   './js/db.js',
   './js/store.js',
   './js/ui.js',
+  './js/plan.js',
   './js/views/today.js',
   './js/views/training.js',
   './js/views/diet.js',
@@ -27,7 +28,7 @@ const SHELL = [
 const DATA = [
   '00_indeks', '01_profil_i_cele', '02_slownik', '03_cwiczenia', '04_plan_treningowy',
   '05_rutyny_dzienne', '06_skladniki', '07_przepisy', '08_plan_posilkow_tydzien',
-  '09_zasady_i_nawyki', '10_suplementy', '11_dziennik', '12_lista_zakupow_tydzien',
+  '09_zasady_i_nawyki', '10_suplementy', '11_dziennik', '12_lista_zakupow_tydzien', '13_preferencje',
 ].map(f => `./data/${f}.csv`);
 
 self.addEventListener('install', (e) => {

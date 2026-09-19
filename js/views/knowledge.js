@@ -1,4 +1,4 @@
-import { DB } from '../db.js';
+import { DB, linkTerms } from '../db.js';
 import { esc, has, seg, badge, block, para, searchBox, chips, bindFilter, empty, on, openSheet } from '../ui.js';
 
 export function render(root, sub = 'cele') {
@@ -19,9 +19,9 @@ function goalsView() {
   const key = DB.profil.filter(r => ['cel_kcal', 'bialko', 'tluszcz', 'weglowodany'].includes(r.parametr));
   return `
   <section class="card card--accent">
-    <div class="eyebrow">Twoje liczby na dziś</div>
-    <div class="macros macros--hero">${key.map(r => `<div><b>${esc(r.wartosc)}</b><span>${esc(r.parametr === 'cel_kcal' ? 'kcal' : human(r.parametr) + ' g')}</span></div>`).join('')}</div>
-    <div class="card__sub">Deficyt ~450 kcal, białko 2 g/kg. Kontrola co 2–3 tygodnie, nie codziennie.</div>
+    <div class="eyebrow">Twoje liczby — orientacyjnie</div>
+    <div class="macros macros--hero">${key.map(r => `<div><b>≈${esc(r.wartosc)}</b><span>${esc(r.parametr === 'cel_kcal' ? 'kcal' : human(r.parametr) + ' g')}</span></div>`).join('')}</div>
+    <div class="card__sub">To widełki, nie wyrok: ±200 kcal i ±20 g białka dziennie to nadal idealnie. Liczy się średnia z tygodnia i to, że robisz to za miesiąc dalej.</div>
   </section>
   ${cats.map(c => `<section class="card"><h3>${esc(c)}</h3>
     ${DB.profil.filter(r => r.kategoria === c).map(r => `<details class="details"><summary><span class="kv"><span>${esc(human(r.parametr))}</span><b>${esc(r.wartosc)} ${esc(r.jednostka)}</b></span></summary>
@@ -40,7 +40,7 @@ function rulesView() {
     ${empty('Brak zasad dla tego filtra.')}
   </section>`;
 }
-const ruleBody = (r) => `<p>${esc(r.dlaczego_prosto)}</p>${block('Jak wdrożyć', para(r.jak_wdrozyc), 'block--soft')}${has(r.zrodlo_lub_konsensus) ? `<p class="muted small">Źródło: ${esc(r.zrodlo_lub_konsensus)}</p>` : ''}`;
+const ruleBody = (r) => `<p>${linkTerms(r.dlaczego_prosto)}</p>${block('Jak wdrożyć', has(r.jak_wdrozyc) ? `<p>${linkTerms(r.jak_wdrozyc)}</p>` : '', 'block--soft')}${has(r.zrodlo_lub_konsensus) ? `<p class="muted small">Źródło: ${esc(r.zrodlo_lub_konsensus)}</p>` : ''}`;
 
 export function openRule(id) {
   const r = DB.ruleById[id];

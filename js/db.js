@@ -1,4 +1,5 @@
 import { parseCSV } from './csv.js';
+import { esc } from './ui.js';
 
 // Nazwa klucza w DB -> plik w data/. Dodanie nowego CSV = jedna linia tutaj.
 const FILES = {
@@ -15,6 +16,7 @@ const FILES = {
   suplementy: '10_suplementy',
   dziennik: '11_dziennik',
   zakupy: '12_lista_zakupow_tydzien',
+  preferencje: '13_preferencje',
 };
 
 export const DB = { ready: false };
@@ -57,7 +59,46 @@ export const routineRows = (name) =>
 
 export function glossary(term) {
   const t = term.toLowerCase();
-  return DB.slownik.find(r => r.termin.toLowerCase().startsWith(t));
+  return DB.slownik.find(r => r.termin.toLowerCase() === t) || DB.slownik.find(r => r.termin.toLowerCase().startsWith(t));
+}
+
+// Które typy przepisów pasują do slotu z planu (kolumna posilek w 08).
+const SLOT_TAGS = {
+  'śniadanie': ['śniadanie'],
+  'II śniadanie': ['przekąska', 'śniadanie'],
+  'obiad': ['obiad'],
+  'przedtreningowa': ['przekąska', 'potreningowy'],
+  'przekąska': ['przekąska', 'potreningowy'],
+  'kolacja': ['kolacja', 'obiad', 'przekąska'],
+};
+export const recipeTags = (r) => String(r.typ_posilku || '').split('/').map(x => x.trim().split(' ')[0]).filter(Boolean);
+export function recipesForSlot(slot) {
+  const tags = SLOT_TAGS[slot] || [String(slot).split(' ')[0]];
+  return DB.przepisy.filter(r => recipeTags(r).some(t => tags.includes(t)));
+}
+export const SLOTS = Object.keys(SLOT_TAGS);
+
+// Auto-linkowanie pojęć ze słownika (kolumna aliasy) w dowolnym tekście.
+let termRx = null, termMap = null;
+function buildTermIndex() {
+  termMap = {};
+  const forms = [];
+  for (const r of DB.slownik) {
+    for (const a of String(r.aliasy || '').split(';').map(s => s.trim()).filter(s => s.length >= 3)) {
+      termMap[a.toLowerCase()] = r.termin;
+      forms.push(a);
+    }
+  }
+  forms.sort((a, b) => b.length - a.length);
+  const escRx = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  termRx = forms.length ? new RegExp(`(?<!\\p{L})(${forms.map(escRx).join('|')})(?!\\p{L})`, 'giu') : null;
+}
+export function linkTerms(text) {
+  if (!text) return '';
+  if (!termRx) buildTermIndex();
+  const safe = esc(text);
+  if (!termRx) return safe;
+  return safe.replace(termRx, (m) => `<button type="button" class="term" data-action="term" data-term="${esc(termMap[m.toLowerCase()] || m)}">${m}</button>`);
 }
 
 // Gdzie w planie występuje dane ćwiczenie (sesje + rutyny).

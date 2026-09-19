@@ -1,9 +1,12 @@
-import { DB, sessionRows, sessionDay, routineNames, routineRows, glossary, usageOf } from '../db.js';
-import { esc, has, seg, steps, para, badge, block, searchBox, chips, bindFilter, empty, plural, on, onInput, openSheet, navigate, toast, rerender } from '../ui.js';
+import { DB, sessionRows, sessionDay, routineNames, routineRows, glossary, usageOf, linkTerms } from '../db.js';
+import { esc, has, seg, para, badge, block, searchBox, chips, bindFilter, empty, plural, splitList, on, onInput, openSheet, navigate, toast, rerender } from '../ui.js';
 import { todayKey, getWorkout, setWorkoutSet, lastWorkoutFor, setEntry, setCheck, getChecks } from '../store.js';
 
 const SESSIONS = ['A', 'B', 'C'];
 const chevron = '<svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
+// Wersje z auto-linkowaniem pojęć ze słownika.
+const stepsL = (s) => `<ol class="steps">${splitList(s).map(x => `<li>${linkTerms(x)}</li>`).join('')}</ol>`;
+const paraL = (s) => has(s) ? `<p>${linkTerms(s)}</p>` : '';
 
 export function render(root, sub = 'sesje', id) {
   const s = ['sesje', 'rutyny', 'cwiczenia'].includes(sub) ? sub : 'sesje';
@@ -42,7 +45,7 @@ function sessionsList() {
   ${deload ? `<details class="card details"><summary><b>${esc(deload.faza)}</b> — lżejszy tydzień<span class="muted small">${esc(deload.serie)}, RIR ${esc(deload.RIR)}</span></summary><p>${esc(deload.uwagi)}</p></details>` : ''}
   <section class="card">
     <h3>Zasady treningu</h3>
-    ${rules.map(r => `<details class="details"><summary><b>${esc(r.nazwa)}</b></summary><p>${esc(r.uwagi)}</p></details>`).join('')}
+    ${rules.map(r => `<details class="details"><summary><b>${esc(r.nazwa)}</b></summary><p>${linkTerms(r.uwagi)}</p></details>`).join('')}
   </section>`;
 }
 
@@ -90,7 +93,7 @@ function planRow(r, workout, date) {
       <div class="exrow__main">
         <div class="exrow__name">${esc(ex?.nazwa || r.nazwa)}</div>
         <div class="exrow__meta">${meta}</div>
-        ${has(r.uwagi) ? `<div class="exrow__note">${esc(r.uwagi)}</div>` : ''}
+        ${has(r.uwagi) ? `<div class="exrow__note">${linkTerms(r.uwagi)}</div>` : ''}
       </div>${ex ? chevron : ''}
     </div>
     ${loggable ? `<div class="exrow__log">
@@ -127,8 +130,8 @@ function routineStep(r) {
   const ex = DB.exById[r.id_cwiczenia];
   return `<div class="li li--tap" ${ex ? `data-action="open-ex" data-id="${esc(r.id_cwiczenia)}"` : ''}>
     <div class="li__row"><b>${esc(r.kolejnosc)}. ${esc(r.nazwa)}</b><span class="badge accent">${esc(r.ilosc)}</span></div>
-    <div class="muted small">${esc(r.cel)}</div>
-    ${has(r.uwagi) ? `<div class="small">${esc(r.uwagi)}</div>` : ''}
+    <div class="muted small">${linkTerms(r.cel)}</div>
+    ${has(r.uwagi) ? `<div class="small">${linkTerms(r.uwagi)}</div>` : ''}
   </div>`;
 }
 export function openRoutine(name) {
@@ -158,13 +161,14 @@ export function openExercise(id) {
   openSheet(e.nazwa, `
     <div class="badges">${badge(e.kategoria, 'accent')}${badge(`poziom ${e.poziom}/3`)}${badge(e.sprzet)}</div>
     <p class="muted">${esc(e.nazwa_ang)} · <b>${esc(e.glowne_miesnie)}</b></p>
-    ${block('Jak wykonać', steps(e.jak_wykonac))}
-    ${block('Najczęstsze błędy', para(e.najczestsze_bledy))}
-    ${block('Biodro i kręgosłup', para(e.uwagi_biodro_kregoslup), 'block--callout')}
-    ${block('Dlaczego jest w planie', para(e.dlaczego_w_planie))}
+    <p class="muted small">Podkreślone słowa możesz tapnąć — wyjaśnienie pojawi się od razu.</p>
+    ${block('Jak wykonać', stepsL(e.jak_wykonac))}
+    ${block('Najczęstsze błędy', paraL(e.najczestsze_bledy))}
+    ${block('Biodro i kręgosłup', paraL(e.uwagi_biodro_kregoslup), 'block--callout')}
+    ${block('Dlaczego jest w planie', paraL(e.dlaczego_w_planie))}
     <div class="two">
-      ${block('Łatwiej', para(e.wersja_latwiejsza), 'block--soft')}
-      ${block('Trudniej', para(e.wersja_trudniejsza), 'block--soft')}
+      ${block('Łatwiej', paraL(e.wersja_latwiejsza), 'block--soft')}
+      ${block('Trudniej', paraL(e.wersja_trudniejsza), 'block--soft')}
     </div>
     ${(use.sessions.length || use.routines.length) ? `<p class="muted small">Występuje w: ${[...use.sessions.map(s => `<a href="#/trening/sesje/${s}" data-action="go" data-href="#/trening/sesje/${s}">Sesja ${s}</a>`), ...use.routines.map(esc)].join(' · ')}</p>` : ''}
   `);

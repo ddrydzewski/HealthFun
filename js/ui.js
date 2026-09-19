@@ -97,12 +97,19 @@ export const setRerender = (fn) => { rerender = fn; };
 const sheet = document.getElementById('sheet');
 const sheetTitle = document.getElementById('sheetTitle');
 const sheetBody = document.getElementById('sheetBody');
+const sheetBack = document.getElementById('sheetBack');
 let pendingNav = null;
+let stack = [];
 
-export function openSheet(title, html) {
+function paintSheet(title, html) {
   sheetTitle.textContent = title;
   sheetBody.innerHTML = html;
   sheetBody.scrollTop = 0;
+  sheetBack.hidden = stack.length === 0;
+}
+export function openSheet(title, html, { replace = false } = {}) {
+  if (sheet.open && !replace) stack.push([sheetTitle.textContent, sheetBody.innerHTML]);
+  paintSheet(title, html);
   if (!sheet.open) {
     sheet.showModal();
     history.pushState({ sheet: true }, '');
@@ -114,13 +121,15 @@ export function navigate(hash) {
   else location.hash = hash;
 }
 window.addEventListener('popstate', () => {
-  if (sheet.open) sheet.close();
+  if (sheet.open) { sheet.close(); stack = []; }
   if (pendingNav) { const h = pendingNav; pendingNav = null; location.hash = h; }
 });
 sheet.addEventListener('cancel', (e) => { e.preventDefault(); closeSheet(); });
 sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
 on('close-sheet', closeSheet);
+on('sheet-back', () => { const prev = stack.pop(); if (prev) paintSheet(prev[0], prev[1]); else closeSheet(); });
 on('go', (el) => navigate(el.dataset.href));
+export const ICON_SWAP = '<svg viewBox="0 0 24 24"><path d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"/></svg>';
 
 // ---- toast ----
 let toastT;

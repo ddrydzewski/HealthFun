@@ -62,3 +62,12 @@ export const clearShop = () => save('shop', {});
 
 export const getSettings = () => ({ theme: 'auto', ...load('settings', {}) });
 export const setSettings = (patch) => save('settings', { ...getSettings(), ...patch });
+
+// Mój plan posiłków: nadpisania dni { dayIdx: [ {id, slot, time} | {custom, kcal, slot, time} ] }
+export const getPlanOverrides = () => load('plan', {});
+export function setDayPlan(dayIdx, meals) { const p = getPlanOverrides(); p[dayIdx] = meals; save('plan', p); }
+export function resetDayPlan(dayIdx) { const p = getPlanOverrides(); delete p[dayIdx]; save('plan', p); }
+
+// Czego nie jem: { P01: true/false, 'custom:słowo': true }
+export const getExcl = () => load('excl', {});
+export function setExcl(key, val) { const e = getExcl(); if (val == null) delete e[key]; else e[key] = val; save('excl', e); }

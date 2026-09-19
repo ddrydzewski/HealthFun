@@ -1,8 +1,9 @@
-import { DB, weekdayName, planForDay, mealsForDay, routineNames, routineRows } from '../db.js';
-import { esc, has, badge, fmtDate, plural, on, rerender } from '../ui.js';
+import { DB, weekdayName, planForDay, routineNames, routineRows } from '../db.js';
+import { esc, has, badge, fmtDate, plural, on, rerender, ICON_SWAP } from '../ui.js';
 import { todayKey, getChecks, setCheck, getEntry } from '../store.js';
+import { dayPlan, mealInfo, kcalTarget, protTarget } from '../plan.js';
 
-const mealKey = (m) => `meal:${m.id_przepisu}:${m.godzina}`;
+const mealKey = (m, i) => `meal:${i}:${m.id || m.custom}`;
 const chevron = '<svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
 
 export function render(root) {
@@ -13,15 +14,17 @@ export function render(root) {
   const checks = getChecks(date);
   const entry = getEntry(date);
 
-  const meals = mealsForDay(wd);
-  const suma = meals.find(m => m.posilek === 'SUMA');
-  const list = meals.filter(m => m.posilek !== 'SUMA');
-  const eaten = list.filter(m => checks[mealKey(m)]);
-  const kcal = eaten.reduce((s, m) => s + (+m.kcal || 0), 0);
-  const prot = eaten.reduce((s, m) => s + (+m.bialko_g || 0), 0);
-  const pct = suma ? Math.min(100, Math.round(kcal / (+suma.kcal || 1) * 100)) : 0;
+  const meals = dayPlan(d.getDay()).meals;
+  const infos = meals.map(mealInfo);
+  const eatenIdx = meals.map((m, i) => i).filter(i => checks[mealKey(meals[i], i)]);
+  const kcal = eatenIdx.reduce((s, i) => s + infos[i].kcal, 0);
+  const prot = eatenIdx.reduce((s, i) => s + infos[i].prot, 0);
+  const target = kcalTarget();
+  const pct = Math.min(100, Math.round(kcal / target * 100));
 
-  const routines = routineNames();
+  const isWeekend = [0, 6].includes(d.getDay());
+  // Przerwa biurowa dotyczy dni pracy (kolumna kiedy zawiera "pracy").
+  const routines = routineNames().filter(n => !(isWeekend && routineRows(n)[0].kiedy.includes('pracy')));
   const routinesDone = routines.filter(n => n.startsWith('Przerwa') ? (checks.biuro || 0) >= 5 : checks['rutyna:' + n]).length;
   const doy = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5);
   const rule = DB.zasady[doy % DB.zasady.length];
@@ -44,10 +47,11 @@ export function render(root) {
   </section>
 
   <section class="card">
-    <div class="card__head"><h3>Posiłki</h3><span class="muted small">${kcal} / ${esc(suma?.kcal || '?')} kcal · ${prot} / ${esc(suma?.bialko_g || '?')} g B</span></div>
+    <div class="card__head"><h3>Posiłki</h3><span class="muted small">${eatenIdx.length} z ${meals.length} · ≈${kcal} kcal · ${prot} g B</span></div>
     <div class="progress"><i style="width:${pct}%"></i></div>
-    ${list.map(m => row(!!checks[mealKey(m)], mealKey(m), `${esc(m.godzina)} · ${esc(m.posilek)}`, esc(m.nazwa), `${esc(m.kcal)} kcal · ${esc(m.bialko_g)} g białka`, `data-action="open-recipe" data-id="${esc(m.id_przepisu)}"`, m.uwagi)).join('')}
-    <a class="linkbtn" href="#/dieta/plan">Cały tydzień →</a>
+    <p class="muted small">Widełki ${target - 200}–${target + 200} kcal i ~${protTarget() - 30}+ g białka to dobry dzień. Nie liczymy do 1 kcal.</p>
+    ${meals.map((m, i) => { const info = infos[i]; return row(!!checks[mealKey(m, i)], mealKey(m, i), `${esc(m.time || '')}${m.time ? ' · ' : ''}${esc(m.slot)}`, esc(info.name) + (m.custom ? ' ' + badge('własne', 'muted') : ''), info.kcal ? `≈${info.kcal} kcal · ${info.prot} g białka` : 'bez liczenia', info.recipe ? `data-action="open-recipe" data-id="${esc(info.recipe.id)}"` : '', m.note, `<button type="button" class="iconbtn" data-action="meal-swap" data-day="${d.getDay()}" data-i="${i}" aria-label="Zamień posiłek">${ICON_SWAP}</button>`); }).join('')}
+    <a class="linkbtn" href="#/dieta/plan">Mój tydzień →</a>
   </section>
 
   <section class="card">
@@ -87,7 +91,7 @@ function greeting(d) {
   return h < 5 ? 'Późno — sen to też trening.' : h < 11 ? 'Dobry poranek.' : h < 17 ? 'Dzień dobry.' : h < 21 ? 'Dobry wieczór.' : 'Czas zwalniać.';
 }
 
-function row(done, key, over, title, meta, openAttrs, note) {
+function row(done, key, over, title, meta, openAttrs, note, extra = chevron) {
   return `<div class="row ${done ? 'row--done' : ''}">
     <button type="button" class="tick" data-action="toggle" data-key="${esc(key)}" aria-pressed="${done}" aria-label="Oznacz jako zrobione"></button>
     <div class="row__body" ${openAttrs}>
@@ -95,7 +99,7 @@ function row(done, key, over, title, meta, openAttrs, note) {
       <div class="row__title">${title}</div>
       <div class="row__meta">${meta}</div>
       ${has(note) ? `<div class="row__note">${esc(note)}</div>` : ''}
-    </div>${chevron}
+    </div>${extra}
   </div>`;
 }
 

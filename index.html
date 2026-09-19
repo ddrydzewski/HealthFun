@@ -50,7 +50,10 @@
   <dialog id="sheet" class="sheet">
     <div class="sheet__handle"></div>
     <div class="sheet__head">
-      <h2 id="sheetTitle"></h2>
+      <div class="sheet__titlewrap">
+        <button type="button" class="linkbtn small" data-action="sheet-back" id="sheetBack" hidden>← Wróć</button>
+        <h2 id="sheetTitle"></h2>
+      </div>
       <button class="iconbtn" data-action="close-sheet" aria-label="Zamknij">
         <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>

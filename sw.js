@@ -3,7 +3,7 @@
  * - Pliki CSV (nasze "API"): network-first, fallback do cache — aktualizacja danych bez zmiany kodu
  * Zmień VERSION przy każdym wdrożeniu, żeby wymusić odświeżenie shellu.
  */
-const VERSION = 'hf-v5';
+const VERSION = 'hf-v6';
 const SHELL = [
   './',
   './index.html',
@@ -35,7 +35,7 @@ const DATA = [
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const cache = await caches.open(VERSION);
-    await cache.addAll(SHELL);
+    await cache.addAll(SHELL.map(url => new Request(url, { cache: 'reload' })));
     // Dane cache'ujemy "best effort" — brak jednego pliku nie blokuje instalacji.
     await Promise.allSettled(DATA.map(u => cache.add(u)));
     await self.skipWaiting();

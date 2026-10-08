@@ -1,7 +1,7 @@
 {
   "name": "HealthFun — centrum zdrowia",
   "short_name": "HealthFun",
-  "description": "Trening, dieta, rutyny i dziennik w jednym miejscu — napędzane plikami CSV.",
+  "description": "Prosty trening, małe kroki i przepisy na co dzień.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -16,8 +16,7 @@
     { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ],
   "shortcuts": [
-    { "name": "Dzisiejszy trening", "url": "./#/trening", "description": "Sesja na dziś" },
-    { "name": "Dziennik", "url": "./#/dziennik", "description": "Wpis na dziś" },
-    { "name": "Plan posiłków", "url": "./#/dieta/plan", "description": "Co dziś jem" }
+    { "name": "Trening", "url": "./#/trening", "description": "Mój trening" },
+    { "name": "Przepisy", "url": "./#/dieta", "description": "Coś dobrego" }
   ]
 }

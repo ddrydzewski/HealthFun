@@ -1,9 +1,9 @@
 import { DB, linkTerms } from '../db.js';
 import { esc, has, seg, badge, block, para, searchBox, chips, bindFilter, empty, on, openSheet } from '../ui.js';
 
-export function render(root, sub = 'cele') {
-  const s = ['cele', 'zasady', 'slownik', 'suplementy'].includes(sub) ? sub : 'cele';
-  let html = seg('wiedza', [['cele', 'Cele'], ['zasady', 'Zasady'], ['slownik', 'Słownik'], ['suplementy', 'Suplementy']], s);
+export function render(root, sub = 'zasady') {
+  const s = ['cele', 'zasady', 'slownik', 'suplementy'].includes(sub) ? sub : 'zasady';
+  let html = seg('wiedza', [['zasady', 'Na co dzień'], ['slownik', 'Pojęcia'], ['cele', 'Mój cel']], s);
   if (s === 'cele') html += goalsView();
   else if (s === 'zasady') html += rulesView();
   else if (s === 'slownik') html += glossaryView();
@@ -18,9 +18,9 @@ function goalsView() {
   const cats = [...new Set(DB.profil.map(r => r.kategoria))];
   const key = DB.profil.filter(r => ['cel_kcal', 'bialko', 'tluszcz', 'weglowodany'].includes(r.parametr));
   return `
-  <section class="card card--accent">
+  <section class="card">
     <div class="eyebrow">Twoje liczby — orientacyjnie</div>
-    <div class="macros macros--hero">${key.map(r => `<div><b>≈${esc(r.wartosc)}</b><span>${esc(r.parametr === 'cel_kcal' ? 'kcal' : human(r.parametr) + ' g')}</span></div>`).join('')}</div>
+    <div class="macros">${key.map(r => `<div><b>≈${esc(r.wartosc)}</b><span>${esc(r.parametr === 'cel_kcal' ? 'kcal' : human(r.parametr) + ' g')}</span></div>`).join('')}</div>
     <div class="card__sub">To widełki, nie wyrok: ±200 kcal i ±20 g białka dziennie to nadal idealnie. Liczy się średnia z tygodnia i to, że robisz to za miesiąc dalej.</div>
   </section>
   ${cats.map(c => `<section class="card"><h3>${esc(c)}</h3>
@@ -34,7 +34,7 @@ function rulesView() {
   return `${searchBox('Szukaj zasady…')}${chips([['1', 'priorytet 1', 'chip--ok'], ...cats.map(c => [c, c])])}
   <section class="card card--list">
     ${DB.zasady.map(r => `<details class="details" data-search="${esc(`${r.zasada} ${r.dlaczego_prosto} ${r.kategoria}`)}" data-cat="${esc(`${r.kategoria} ${r.priorytet}`)}">
-      <summary><span class="kv"><span><span class="badge ${r.priorytet === '1' ? 'ok' : 'muted'}">P${esc(r.priorytet)}</span> ${esc(r.zasada)}</span></span><span class="muted small">${esc(r.kategoria)}</span></summary>
+      <summary><b>${esc(r.zasada)}</b></summary>
       ${ruleBody(r)}
     </details>`).join('')}
     ${empty('Brak zasad dla tego filtra.')}
@@ -53,10 +53,10 @@ function glossaryView() {
   return `${searchBox('Szukaj pojęcia…')}${chips(cats.map(c => [c, c]))}
   <section class="card card--list">
     ${DB.slownik.map(r => `<details class="details" data-search="${esc(`${r.termin} ${r.wyjasnienie_prosto}`)}" data-cat="${esc(r.kategoria)}">
-      <summary><b>${esc(r.termin)}</b><span class="muted small">${esc(r.kategoria)}</span></summary>
-      <p>${esc(r.wyjasnienie_prosto)}</p>${has(r.przyklad_lub_analogia) ? `<p class="muted"><i>${esc(r.przyklad_lub_analogia)}</i></p>` : ''}
+      <summary><b>${esc(r.termin)}</b></summary>
+      <p>${esc(shortMeaning(r))}</p>${has(r.przyklad_lub_analogia) ? `<p class="muted small">${esc(r.przyklad_lub_analogia)}</p>` : ''}
     </details>`).join('')}
-    ${empty('Nie ma takiego pojęcia — dopisz je do 02_slownik.csv.')}
+    ${empty('Nie znaleziono tego pojęcia.')}
   </section>`;
 }
 
@@ -76,3 +76,14 @@ function supplementsView() {
 }
 
 on('open-rule', (el) => openRule(el.dataset.id));
+
+export function shortMeaning(term) {
+  const simple = {
+    rir: 'Ile powtórzeń możesz jeszcze zrobić. RIR 2 = kończysz serię z zapasem dwóch powtórzeń.',
+    tempo: 'Szybkość ruchu. 3-1-1-0 = 3 sekundy opuszczania, 1 sekunda pauzy, 1 sekunda podnoszenia, bez pauzy na górze.',
+    superset: 'Dwa ćwiczenia wykonywane jedno po drugim. Przerwa dopiero po obu.',
+    deload: 'Lżejszy tydzień treningu, żeby odpocząć i odzyskać siły.',
+    core: 'Mięśnie brzucha i tułowia, które pomagają utrzymać stabilne ciało.',
+  };
+  return simple[term.termin.toLowerCase().split(' ')[0]] || term.wyjasnienie_prosto;
+}

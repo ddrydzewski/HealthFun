@@ -14,8 +14,6 @@ const FILES = {
   posilki: '08_plan_posilkow_tydzien',
   zasady: '09_zasady_i_nawyki',
   suplementy: '10_suplementy',
-  dziennik: '11_dziennik',
-  zakupy: '12_lista_zakupow_tydzien',
   preferencje: '13_preferencje',
 };
 

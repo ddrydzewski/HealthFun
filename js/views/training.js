@@ -1,6 +1,8 @@
 import { DB, sessionRows, sessionDay, routineNames, routineRows, glossary, usageOf, linkTerms } from '../db.js';
 import { esc, has, seg, para, badge, block, searchBox, chips, bindFilter, empty, plural, splitList, on, onInput, openSheet, navigate, toast, rerender } from '../ui.js';
-import { todayKey, getWorkout, setWorkoutSet, lastWorkoutFor, setEntry, setCheck, getChecks } from '../store.js';
+import { todayKey, getWorkout, setWorkoutSet, lastWorkoutFor, setCheck, getChecks } from '../store.js';
+import { startTimer, stopTimer } from '../ui.js';
+import { shortMeaning } from './knowledge.js';
 
 const SESSIONS = ['A', 'B', 'C'];
 const chevron = '<svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
@@ -10,7 +12,7 @@ const paraL = (s) => has(s) ? `<p>${linkTerms(s)}</p>` : '';
 
 export function render(root, sub = 'sesje', id) {
   const s = ['sesje', 'rutyny', 'cwiczenia'].includes(sub) ? sub : 'sesje';
-  let html = seg('trening', [['sesje', 'Sesje'], ['rutyny', 'Rutyny'], ['cwiczenia', 'Ćwiczenia']], s);
+  let html = seg('trening', [['sesje', 'Treningi'], ['rutyny', 'Małe kroki'], ['cwiczenia', 'Ćwiczenia']], s);
   if (s === 'sesje') html += SESSIONS.includes(id) ? sessionView(id) : sessionsList();
   else if (s === 'rutyny') html += routinesView();
   else html += exercisesView();
@@ -27,7 +29,7 @@ function sessionsList() {
     const main = rows.filter(r => r.blok.startsWith('główne'));
     const done = checks.workout === L;
     return `<a class="card card--link" href="#/trening/sesje/${L}">
-      <div class="card__head"><div><div class="eyebrow">${esc(sessionDay(L))}</div><div class="card__big">Sesja ${L} ${done ? badge('zrobione dziś', 'ok') : ''}</div></div>${chevron}</div>
+      <div class="card__head"><div><div class="eyebrow">${esc(sessionDay(L))}</div><div class="card__big">Trening ${L} ${done ? badge('zrobione dziś', 'ok') : ''}</div></div>${chevron}</div>
       <div class="card__sub">${main.map(r => esc(DB.exById[r.id_cwiczenia]?.nazwa || r.nazwa)).join(' · ')}</div>
       <div class="muted small">${plural(rows.length, 'ćwiczenie', 'ćwiczenia', 'ćwiczeń')} · 45–55 min · ${rows.filter(r => r.blok !== 'rozgrzewka').length} z obciążeniem</div>
     </a>`;
@@ -55,26 +57,32 @@ function sessionView(L) {
   const rows = sessionRows(L);
   const workout = getWorkout(date);
   const checks = getChecks(date);
-  const groups = [];
-  for (const r of rows) {
-    const g = groups.at(-1);
-    const name = r.blok.replace(/\s*\(superset\)/, '');
-    if (!g || g.name !== name) groups.push({ name, rows: [r] }); else g.rows.push(r);
-  }
-  const labels = { rozgrzewka: 'Rozgrzewka', 'główne': 'Główne', dodatkowe: 'Dodatkowe', core: 'Core' };
+  let index = Math.max(0, Math.min(rows.length - 1, Number(checks['current:' + L]) || 0));
+  if (rows[index]?.blok.includes('superset') && rows[index - 1]?.blok === rows[index].blok) index--;
+  const row = rows[index];
+  if (!row) return empty('Brak ćwiczeń w tym treningu.');
+  const active = row.blok.includes('superset') && rows[index + 1]?.blok === row.blok ? rows.slice(index, index + 2) : [row];
+  const next = index + active.length;
+  const completed = rows.filter(item => exerciseDone(L, item, checks)).length;
   return `
-  <a class="back" href="#/trening/sesje">← Wszystkie sesje</a>
-  <section class="hero hero--compact">
-    <div class="eyebrow">${esc(sessionDay(L))} · ${esc(rows[0]?.faza || '')}</div>
-    <h2 class="hero__title">Sesja ${L} ${checks.workout === L ? badge('zrobione dziś', 'ok') : ''}</h2>
-    <p class="muted">Rozgrzewka bez przerw. Główne: RIR 2, technika ponad ciężar. Wpisuj kg × powtórzenia — aplikacja pokaże Ci ostatni wynik.</p>
-  </section>
-  ${groups.map(g => `<section class="card"><div class="card__head"><h3>${esc(labels[g.name] || g.name)}</h3><span class="muted small">${g.rows.length}</span></div>${g.rows.map(r => planRow(r, workout, date)).join('')}</section>`).join('')}
-  <button type="button" class="btn btn--big" data-action="finish-workout" data-session="${L}">Zakończ trening i zapisz</button>
-  <p class="muted small center">Zapis trafia do dziennika (sesja, wykonany, ciężary). Serie zostają w historii ćwiczeń.</p>`;
+  <a class="back" href="#/trening/sesje">← Treningi</a>
+  <div class="section-heading"><h2>Trening ${L}</h2><span class="muted small">${completed}/${rows.length} zrobione</span></div>
+  <div class="progress" role="progressbar" aria-label="Postęp treningu" aria-valuemin="0" aria-valuemax="${rows.length}" aria-valuenow="${completed}"><i style="width:${completed / rows.length * 100}%"></i></div>
+  <section class="workout-focus"><div class="eyebrow">Ćwiczenie ${index + 1}${active.length === 2 ? '–' + (index + 2) : ''} z ${rows.length} · ${row.blok === 'rozgrzewka' ? 'rozgrzewka' : 'trening'}</div>${active.length === 2 ? '<p class="muted small">Jedna seria każdego ćwiczenia, potem przerwa. Powtórz trzy razy.</p>' : ''}${active.map(item => planRow(item, workout, date, L)).join('')}</section>
+  <div class="workout-nav"><button class="btn btn--ghost" data-action="workout-step" data-session="${L}" data-index="${index - 1}" ${index === 0 ? 'disabled' : ''}>← Poprzednie</button><button class="btn btn--ghost" data-action="workout-step" data-session="${L}" data-index="${next}" ${next >= rows.length ? 'disabled' : ''}>Następne →</button></div>
+  <details class="details workout-overview"><summary>Wszystkie ćwiczenia</summary>${rows.map((item, itemIndex) => `<button class="workout-jump" data-action="workout-step" data-session="${L}" data-index="${itemIndex}"><span>${exerciseDone(L, item, checks) ? '✓' : itemIndex + 1}. ${esc(DB.exById[item.id_cwiczenia]?.nazwa || item.nazwa)}</span>${itemIndex === index ? badge('teraz', 'accent') : ''}</button>`).join('')}</details>
+  ${completed === rows.length ? `<button class="btn btn--big" data-action="finish-workout" data-session="${L}">${checks.workout === L ? '✓ Trening zapisany' : 'Zakończ trening'}</button>` : ''}`;
 }
 
-function planRow(r, workout, date) {
+const setKey = (session, id, index) => `set:${session}:${id}:${index}`;
+function exerciseDone(session, row, checks) {
+  const count = parseInt(row.serie, 10);
+  return row.blok !== 'rozgrzewka' && count > 0
+    ? Array.from({ length: count }, (_, index) => !!checks[setKey(session, row.id_cwiczenia, index)]).every(Boolean)
+    : !!checks[`exercise:${session}:${row.id_cwiczenia}`];
+}
+
+function planRow(r, workout, date, session) {
   const ex = DB.exById[r.id_cwiczenia];
   const n = parseInt(r.serie, 10);
   const loggable = Number.isInteger(n) && n > 0 && r.blok !== 'rozgrzewka';
@@ -83,33 +91,33 @@ function planRow(r, workout, date) {
   const rest = parseInt(r.przerwa_s, 10);
   const meta = [
     `${esc(r.serie)} × ${esc(r.powtorzenia_lub_czas)}`,
-    has(r.RIR) ? `<button type="button" class="term" data-action="term" data-term="RIR">RIR ${esc(r.RIR)}</button>` : '',
-    has(r.tempo) && r.blok !== 'rozgrzewka' ? `<button type="button" class="term" data-action="term" data-term="Tempo">tempo ${esc(r.tempo)}</button>` : '',
+    has(r.RIR) && r.blok !== 'rozgrzewka' ? `zostaw ${esc(r.RIR)} powt. w zapasie` : '',
     rest ? `przerwa ${esc(r.przerwa_s)} s` : '',
   ].filter(Boolean).join(' · ');
   return `<div class="exrow">
-    <div class="exrow__head" data-action="open-ex" data-id="${esc(r.id_cwiczenia)}" role="button">
-      <div class="exrow__num">${esc(r.kolejnosc)}</div>
+    <div class="exrow__head">
       <div class="exrow__main">
         <div class="exrow__name">${esc(ex?.nazwa || r.nazwa)}</div>
         <div class="exrow__meta">${meta}</div>
-        ${has(r.uwagi) ? `<div class="exrow__note">${linkTerms(r.uwagi)}</div>` : ''}
-      </div>${ex ? chevron : ''}
+        ${ex ? `<button class="linkbtn" data-action="open-ex" data-id="${esc(ex.id)}">Jak wykonać →</button>` : ''}
+        ${has(r.uwagi) || has(r.tempo) ? `<details class="details"><summary>Wskazówki</summary>${paraL(r.uwagi)}${has(r.tempo) ? `<p>Tempo: ${esc(r.tempo)}</p>` : ''}</details>` : ''}
+      </div>
     </div>
     ${loggable ? `<div class="exrow__log">
       ${last ? `<div class="muted small">Ostatnio (${esc(last.date.slice(5).replace('-', '.'))}): ${esc(fmtSets(last.sets))}</div>` : ''}
-      <div class="sets">${Array.from({ length: n }, (_, i) => {
+      <div class="series-checks">${Array.from({ length: n }, (_, index) => `<button class="series-check" data-action="workout-set" data-session="${session}" data-ex="${esc(r.id_cwiczenia)}" data-i="${index}" data-rest="${rest || 0}" aria-pressed="${!!getChecks(date)[setKey(session, r.id_cwiczenia, index)]}">Seria ${index + 1}<span>${getChecks(date)[setKey(session, r.id_cwiczenia, index)] ? '✓' : '○'}</span></button>`).join('')}</div>
+      <details class="details"><summary>Ciężar i powtórzenia <span class="muted small">opcjonalnie</span></summary><div class="sets">${Array.from({ length: n }, (_, i) => {
         const st = sets[i] || {};
         return `<div class="set"><span class="set__n">${i + 1}</span>
           <input type="number" step="0.5" min="0" inputmode="decimal" placeholder="kg" value="${esc(st.kg ?? '')}" data-input="set" data-ex="${esc(r.id_cwiczenia)}" data-i="${i}" data-f="kg" aria-label="Seria ${i + 1} kg">
           <span class="set__x">×</span>
           <input type="number" min="0" inputmode="numeric" placeholder="powt." value="${esc(st.reps ?? '')}" data-input="set" data-ex="${esc(r.id_cwiczenia)}" data-i="${i}" data-f="reps" aria-label="Seria ${i + 1} powtórzenia">
-        </div>`; }).join('')}</div>
+        </div>`; }).join('')}</div></details>
       <div class="exrow__actions">
         ${rest ? `<button type="button" class="btn btn--small btn--ghost" data-action="timer" data-sec="${rest}">Start przerwy ${esc(r.przerwa_s)} s</button>` : ''}
         ${has(r.progresja) ? `<span class="muted small">Progresja: ${esc(r.progresja)}</span>` : ''}
       </div>
-    </div>` : ''}
+    </div>` : `<button class="btn btn--big btn--ghost" data-action="workout-exercise" data-session="${session}" data-ex="${esc(r.id_cwiczenia)}" aria-pressed="${exerciseDone(session, r, getChecks(date))}">${exerciseDone(session, r, getChecks(date)) ? '✓ Zrobione' : 'Oznacz jako zrobione'}</button>`}
   </div>`;
 }
 
@@ -117,14 +125,14 @@ const fmtSets = (sets) => sets.map(s => `${s.kg || '–'}×${s.reps || '–'}`).
 
 // ---------- rutyny ----------
 function routinesView() {
-  return `<p class="muted intro">Krótkie sekwencje na cały dzień. Wieczorna ma z czasem zastąpić rolowanie — leczy przyczynę (skrócone zginacze bioder, słabe pośladki), nie objaw.</p>
+  return `<p class="muted intro">Chwila ruchu rano, przy biurku i wieczorem.</p>
   ${routineNames().map(name => routineCard(name)).join('')}`;
 }
 function routineCard(name) {
   const rows = routineRows(name);
   const f = rows[0];
   return `<section class="card"><div class="card__head"><div><h3>${esc(name)}</h3><div class="muted small">${esc(f.kiedy)} · ${esc(f.czas_calkowity_min)} min</div></div></div>
-    ${rows.map(r => routineStep(r)).join('')}</section>`;
+    <button class="btn btn--ghost" data-action="open-routine" data-name="${esc(name)}">Zaczynam →</button></section>`;
 }
 function routineStep(r) {
   const ex = DB.exById[r.id_cwiczenia];
@@ -134,22 +142,25 @@ function routineStep(r) {
     ${has(r.uwagi) ? `<div class="small">${linkTerms(r.uwagi)}</div>` : ''}
   </div>`;
 }
-export function openRoutine(name) {
+export function openRoutine(name, replace = false) {
   const rows = routineRows(name);
   const f = rows[0];
-  openSheet(name, `<p class="muted">${esc(f.kiedy)} · ok. ${esc(f.czas_calkowity_min)} min</p>${rows.map(routineStep).join('')}`);
+  if (!f) return;
+  const compact = rows.slice(0, 3);
+  const checks = getChecks(todayKey());
+  openSheet(name, `<p class="muted">${esc(f.kiedy)}</p>${compact.map(routineStep).join('')}${rows.length > 3 ? `<details class="details"><summary>Dłuższa wersja</summary>${rows.slice(3).map(routineStep).join('')}</details>` : ''}<button class="btn btn--big" data-action="routine-done" data-name="${esc(name)}" aria-pressed="${!!checks['rutyna:' + name]}">${checks['rutyna:' + name] ? '✓ Zrobione dziś' : 'Zrobione na dziś'}</button>`, { replace });
 }
 
 // ---------- biblioteka ćwiczeń ----------
 function exercisesView() {
   const cats = [...new Set(DB.cwiczenia.map(r => r.kategoria))];
-  const lvl = (n) => '●'.repeat(+n || 1) + '○'.repeat(Math.max(0, 3 - (+n || 1)));
+  const lvl = (n) => ['Łatwe', 'Średnie', 'Zaawansowane'][Math.max(0, Math.min(2, (+n || 1) - 1))];
   return `${searchBox('Szukaj ćwiczenia, mięśnia…')}${chips(cats.map(c => [c, c]))}
   <section class="card card--list">
-    ${DB.cwiczenia.map(e => `<div class="li li--tap" data-action="open-ex" data-id="${esc(e.id)}" data-search="${esc(`${e.nazwa} ${e.nazwa_ang} ${e.glowne_miesnie} ${e.kategoria} ${e.sprzet}`)}" data-cat="${esc(e.kategoria)}">
+    ${DB.cwiczenia.map(e => `<button class="li exercise-item" data-action="open-ex" data-id="${esc(e.id)}" data-search="${esc(`${e.nazwa} ${e.nazwa_ang} ${e.glowne_miesnie} ${e.kategoria} ${e.sprzet}`)}" data-cat="${esc(e.kategoria)}">
       <div class="li__row"><b>${esc(e.nazwa)}</b><span class="muted small mono" title="poziom">${lvl(e.poziom)}</span></div>
       <div class="muted small">${esc(e.glowne_miesnie)} · ${esc(e.sprzet)}</div>
-    </div>`).join('')}
+    </button>`).join('')}
     ${empty('Nic nie pasuje do filtra.')}
   </section>`;
 }
@@ -161,15 +172,14 @@ export function openExercise(id) {
   openSheet(e.nazwa, `
     <div class="badges">${badge(e.kategoria, 'accent')}${badge(`poziom ${e.poziom}/3`)}${badge(e.sprzet)}</div>
     <p class="muted">${esc(e.nazwa_ang)} · <b>${esc(e.glowne_miesnie)}</b></p>
-    <p class="muted small">Podkreślone słowa możesz tapnąć — wyjaśnienie pojawi się od razu.</p>
     ${block('Jak wykonać', stepsL(e.jak_wykonac))}
     ${block('Najczęstsze błędy', paraL(e.najczestsze_bledy))}
     ${block('Biodro i kręgosłup', paraL(e.uwagi_biodro_kregoslup), 'block--callout')}
-    ${block('Dlaczego jest w planie', paraL(e.dlaczego_w_planie))}
+    <details class="details"><summary>Więcej o ćwiczeniu</summary>${block('Po co', paraL(e.dlaczego_w_planie))}
     <div class="two">
       ${block('Łatwiej', paraL(e.wersja_latwiejsza), 'block--soft')}
       ${block('Trudniej', paraL(e.wersja_trudniejsza), 'block--soft')}
-    </div>
+    </div></details>
     ${(use.sessions.length || use.routines.length) ? `<p class="muted small">Występuje w: ${[...use.sessions.map(s => `<a href="#/trening/sesje/${s}" data-action="go" data-href="#/trening/sesje/${s}">Sesja ${s}</a>`), ...use.routines.map(esc)].join(' · ')}</p>` : ''}
   `);
 }
@@ -180,25 +190,47 @@ on('open-routine', (el) => openRoutine(el.dataset.name));
 on('term', (el) => {
   const g = glossary(el.dataset.term);
   if (!g) return;
-  openSheet(g.termin, `<p>${esc(g.wyjasnienie_prosto)}</p>${block('Przykład', para(g.przyklad_lub_analogia), 'block--soft')}<p class="muted small">Więcej pojęć: Wiedza → Słownik.</p>`);
+  openSheet(g.termin, `<p>${esc(shortMeaning(g))}</p>${block('Przykład', para(g.przyklad_lub_analogia))}`);
 });
 onInput('set', (el) => {
+  if (!['kg', 'reps'].includes(el.dataset.f) || !el.validity.valid) return;
   setWorkoutSet(todayKey(), el.dataset.ex, +el.dataset.i, el.dataset.f, el.value);
+});
+on('workout-step', el => {
+  const rows = sessionRows(el.dataset.session), index = +el.dataset.index;
+  if (!Number.isInteger(index) || index < 0 || index >= rows.length) return;
+  setCheck(todayKey(), 'current:' + el.dataset.session, index);
+  rerender();
+  window.scrollTo(0, 0);
+});
+on('workout-set', el => {
+  const date = todayKey(), key = setKey(el.dataset.session, el.dataset.ex, +el.dataset.i);
+  const next = !getChecks(date)[key];
+  setCheck(date, key, next);
+  rerender();
+  if (next) {
+    toast('Seria zrobiona. Krok bliżej!');
+    if (sessionRows(el.dataset.session).every(row => exerciseDone(el.dataset.session, row, getChecks(date)))) stopTimer();
+    else if (+el.dataset.rest > 0) startTimer(+el.dataset.rest);
+  }
+});
+on('workout-exercise', el => {
+  const date = todayKey(), key = `exercise:${el.dataset.session}:${el.dataset.ex}`;
+  setCheck(date, key, !getChecks(date)[key]);
+  rerender();
+});
+on('routine-done', el => {
+  const date = todayKey(), key = 'rutyna:' + el.dataset.name;
+  setCheck(date, key, !getChecks(date)[key]);
+  openRoutine(el.dataset.name, true);
+  rerender();
 });
 on('finish-workout', (el) => {
   const L = el.dataset.session;
   const date = todayKey();
-  const workout = getWorkout(date);
-  const summary = sessionRows(L)
-    .filter(r => r.blok.startsWith('główne') || r.blok.startsWith('dodatkowe'))
-    .map(r => {
-      const sets = (workout[r.id_cwiczenia] || []).filter(s => s && (s.kg || s.reps));
-      if (!sets.length) return null;
-      const name = (DB.exById[r.id_cwiczenia]?.nazwa_ang || r.nazwa).split(' ').slice(0, 2).join(' ');
-      return `${name} ${fmtSets(sets)}`;
-    }).filter(Boolean).join(' / ');
-  setEntry(date, { trening_sesja: L, trening_wykonany: 'tak', ...(summary ? { glowne_ciezary_kg: summary } : {}) });
+  if (!sessionRows(L).every(row => exerciseDone(L, row, getChecks(date)))) return;
   setCheck(date, 'workout', L);
+  stopTimer();
   toast('Trening zapisany. Dobra robota.');
   rerender();
   setTimeout(() => navigate('#/dzis'), 600);

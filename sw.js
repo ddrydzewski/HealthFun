@@ -3,7 +3,7 @@
  * - Pliki CSV (nasze "API"): network-first, fallback do cache — aktualizacja danych bez zmiany kodu
  * Zmień VERSION przy każdym wdrożeniu, żeby wymusić odświeżenie shellu.
  */
-const VERSION = 'hf-v6';
+const VERSION = 'hf-v7';
 const SHELL = [
   './',
   './index.html',

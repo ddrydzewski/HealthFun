@@ -12,6 +12,7 @@ const paraL = (s) => has(s) ? `<p>${linkTerms(s)}</p>` : '';
 
 export function render(root, sub = 'sesje', id) {
   const s = ['sesje', 'rutyny', 'cwiczenia'].includes(sub) ? sub : 'sesje';
+  root.classList.toggle('app--workout', s === 'sesje' && SESSIONS.includes(id));
   let html = seg('trening', [['sesje', 'Treningi'], ['rutyny', 'Małe kroki'], ['cwiczenia', 'Ćwiczenia']], s);
   if (s === 'sesje') html += SESSIONS.includes(id) ? sessionView(id) : sessionsList();
   else if (s === 'rutyny') html += routinesView();
@@ -66,12 +67,12 @@ function sessionView(L) {
   const completed = rows.filter(item => exerciseDone(L, item, checks)).length;
   return `
   <a class="back" href="#/trening/sesje">← Treningi</a>
-  <div class="section-heading"><h2>Trening ${L}</h2><span class="muted small">${completed}/${rows.length} zrobione</span></div>
+  <div class="section-heading"><h2>Trening ${L}</h2><span class="muted small" data-workout-count>${completed}/${rows.length} zrobione</span></div>
   <div class="progress" role="progressbar" aria-label="Postęp treningu" aria-valuemin="0" aria-valuemax="${rows.length}" aria-valuenow="${completed}"><i style="width:${completed / rows.length * 100}%"></i></div>
   <section class="workout-focus"><div class="eyebrow">Ćwiczenie ${index + 1}${active.length === 2 ? '–' + (index + 2) : ''} z ${rows.length} · ${row.blok === 'rozgrzewka' ? 'rozgrzewka' : 'trening'}</div>${active.length === 2 ? '<p class="muted small">Jedna seria każdego ćwiczenia, potem przerwa. Powtórz trzy razy.</p>' : ''}${active.map(item => planRow(item, workout, date, L)).join('')}</section>
   <div class="workout-nav"><button class="btn btn--ghost" data-action="workout-step" data-session="${L}" data-index="${index - 1}" ${index === 0 ? 'disabled' : ''}>← Poprzednie</button><button class="btn btn--ghost" data-action="workout-step" data-session="${L}" data-index="${next}" ${next >= rows.length ? 'disabled' : ''}>Następne →</button></div>
   <details class="details workout-overview"><summary>Wszystkie ćwiczenia</summary>${rows.map((item, itemIndex) => `<button class="workout-jump" data-action="workout-step" data-session="${L}" data-index="${itemIndex}"><span>${exerciseDone(L, item, checks) ? '✓' : itemIndex + 1}. ${esc(DB.exById[item.id_cwiczenia]?.nazwa || item.nazwa)}</span>${itemIndex === index ? badge('teraz', 'accent') : ''}</button>`).join('')}</details>
-  ${completed === rows.length ? `<button class="btn btn--big" data-action="finish-workout" data-session="${L}">${checks.workout === L ? '✓ Trening zapisany' : 'Zakończ trening'}</button>` : ''}`;
+  <button class="btn btn--big workout-finish" data-action="finish-workout" data-session="${L}" ${completed === rows.length ? '' : 'hidden'}>${checks.workout === L ? '✓ Trening zapisany' : 'Zakończ trening'}</button>`;
 }
 
 const setKey = (session, id, index) => `set:${session}:${id}:${index}`;
@@ -80,6 +81,22 @@ function exerciseDone(session, row, checks) {
   return row.blok !== 'rozgrzewka' && count > 0
     ? Array.from({ length: count }, (_, index) => !!checks[setKey(session, row.id_cwiczenia, index)]).every(Boolean)
     : !!checks[`exercise:${session}:${row.id_cwiczenia}`];
+}
+
+function updateWorkoutProgress(session) {
+  const root = document.querySelector('.app--workout');
+  if (!root) return;
+  const rows = sessionRows(session), checks = getChecks(todayKey());
+  const completed = rows.filter(row => exerciseDone(session, row, checks)).length;
+  root.querySelector('[data-workout-count]').textContent = `${completed}/${rows.length} zrobione`;
+  const progress = root.querySelector('[role="progressbar"]');
+  progress.setAttribute('aria-valuenow', completed);
+  progress.querySelector('i').style.width = `${completed / rows.length * 100}%`;
+  root.querySelectorAll('.workout-jump').forEach(button => {
+    const index = Number(button.dataset.index), row = rows[index];
+    button.querySelector('span').textContent = `${exerciseDone(session, row, checks) ? '✓' : index + 1}. ${DB.exById[row.id_cwiczenia]?.nazwa || row.nazwa}`;
+  });
+  root.querySelector('.workout-finish').hidden = completed !== rows.length;
 }
 
 function planRow(r, workout, date, session) {
@@ -201,13 +218,14 @@ on('workout-step', el => {
   if (!Number.isInteger(index) || index < 0 || index >= rows.length) return;
   setCheck(todayKey(), 'current:' + el.dataset.session, index);
   rerender();
-  window.scrollTo(0, 0);
 });
 on('workout-set', el => {
   const date = todayKey(), key = setKey(el.dataset.session, el.dataset.ex, +el.dataset.i);
   const next = !getChecks(date)[key];
   setCheck(date, key, next);
-  rerender();
+  el.setAttribute('aria-pressed', next);
+  el.querySelector('span').textContent = next ? '✓' : '○';
+  updateWorkoutProgress(el.dataset.session);
   if (next) {
     toast('Seria zrobiona. Krok bliżej!');
     if (sessionRows(el.dataset.session).every(row => exerciseDone(el.dataset.session, row, getChecks(date)))) stopTimer();
@@ -216,8 +234,11 @@ on('workout-set', el => {
 });
 on('workout-exercise', el => {
   const date = todayKey(), key = `exercise:${el.dataset.session}:${el.dataset.ex}`;
-  setCheck(date, key, !getChecks(date)[key]);
-  rerender();
+  const next = !getChecks(date)[key];
+  setCheck(date, key, next);
+  el.setAttribute('aria-pressed', next);
+  el.textContent = next ? '✓ Zrobione' : 'Oznacz jako zrobione';
+  updateWorkoutProgress(el.dataset.session);
 });
 on('routine-done', el => {
   const date = todayKey(), key = 'rutyna:' + el.dataset.name;

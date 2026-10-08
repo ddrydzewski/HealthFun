@@ -24,6 +24,7 @@ function route() {
   document.querySelectorAll('#tabbar a').forEach(a => a.classList.toggle('on', a.dataset.tab === tab));
   document.getElementById('title').textContent = TITLES[tab];
   const key = parts.slice(0, 3).join('/');
+  app.classList.remove('app--workout');
   app.innerHTML = '';
   VIEWS[tab].render(app, parts[1], parts[2]);
   if (key !== lastKey) window.scrollTo(0, 0);

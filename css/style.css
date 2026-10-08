@@ -381,7 +381,11 @@ section.card { background: none; box-shadow: none; border-radius: 0; border-bott
 .workout-focus { padding: 22px 0 12px; }
 .workout-focus .exrow__name { font-size: 24px; line-height: 1.25; }
 .workout-focus .exrow__meta { margin: 8px 0; font-size: 15px; }
-.workout-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.app--workout { padding-bottom: calc(var(--tab-h) + 144px + env(safe-area-inset-bottom)); }
+.workout-nav { position: fixed; left: 0; right: 0; bottom: calc(var(--tab-h) + env(safe-area-inset-bottom)); z-index: 21; max-width: 720px; margin: 0 auto; height: 64px; padding: 10px 16px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; background: var(--bg); border-top: 1px solid var(--line); }
+.workout-nav .btn { min-width: 0; height: 44px; padding: 8px; font-size: 14px; }
+body:has(.app--workout) .timer { bottom: calc(var(--tab-h) + 76px + env(safe-area-inset-bottom)); }
+body:has(.app--workout) .toast { bottom: calc(var(--tab-h) + 134px + env(safe-area-inset-bottom)); }
 .series-checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); gap: 8px; margin: 14px 0; }
 .series-check { min-height: 68px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-size: 14px; }
 .series-check span { font-size: 22px; }
